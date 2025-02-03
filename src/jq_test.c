@@ -14,6 +14,8 @@ static void run_jq_tests(jv, int, FILE *, int, int);
 static void run_jq_pthread_tests();
 #endif
 
+#define TIMEOUT_SEC 5
+
 int jq_testsuite(jv libdirs, int verbose, int argc, char* argv[]) {
   FILE *testdata = stdin;
   int skip = -1;
@@ -193,7 +195,7 @@ static void run_jq_tests(jv lib_dirs, int verbose, FILE *testdata, int skip, int
         invalid++;
         continue;
       }
-      jv actual = jq_next(jq);
+      jv actual = jq_next(jq, TIMEOUT_SEC);
       if (!jv_is_valid(actual)) {
         jv_free(expected);
         jv_free(actual);
@@ -217,7 +219,7 @@ static void run_jq_tests(jv lib_dirs, int verbose, FILE *testdata, int skip, int
       jv_free(actual);
     }
     if (pass) {
-      jv extra = jq_next(jq);
+      jv extra = jq_next(jq, TIMEOUT_SEC);
       if (jv_is_valid(extra)) {
         printf("*** Superfluous result: ");
         jv_dump(extra, 0);
@@ -264,11 +266,11 @@ static int test_pthread_jq_parse(jq_state *jq, struct jv_parser *parser)
     value = jv_parser_next(parser);
     while (jv_is_valid(value)) {
         jq_start(jq, value, 0);
-        jv result = jq_next(jq);
+        jv result = jq_next(jq, TIMEOUT_SEC);
 
         while (jv_is_valid(result)) {
             jv_free(result);
-            result = jq_next(jq);
+            result = jq_next(jq, TIMEOUT_SEC);
         }
         jv_free(result);
         value = jv_parser_next(parser);

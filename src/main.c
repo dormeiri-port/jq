@@ -178,6 +178,8 @@ enum {
 #define jq_exit_with_status(r)  exit(abs(r))
 #define jq_exit(r)              exit( r > 0 ? r : 0 )
 
+#define TIMEOUT_SEC 5
+
 static const char *skip_shebang(const char *p) {
   if (strncmp(p, "#!", sizeof("#!") - 1) != 0)
     return p;
@@ -197,7 +199,7 @@ static int process(jq_state *jq, jv value, int flags, int dumpopts, int options)
   int ret = JQ_OK_NO_OUTPUT; // No valid results && -e -> exit(4)
   jq_start(jq, value, flags);
   jv result;
-  while (jv_is_valid(result = jq_next(jq))) {
+  while (jv_is_valid(result = jq_next(jq, TIMEOUT_SEC))) {
     if ((options & RAW_OUTPUT) && jv_get_kind(result) == JV_KIND_STRING) {
       if (options & ASCII_OUTPUT) {
         jv_dumpf(jv_copy(result), stdout, JV_PRINT_ASCII);

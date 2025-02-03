@@ -18,6 +18,9 @@
 #include "builtin.h"
 #include "util.h"
 #include "linker.h"
+#include "time.h"
+
+#define CHECK_TIMEOUT_FREQ 100
 
 struct jq_state {
   void (*nomem_handler)(void *);
@@ -338,7 +341,7 @@ static void set_error(jq_state *jq, jv value) {
 
 #define ON_BACKTRACK(op) ((op)+NUM_OPCODES)
 
-jv jq_next(jq_state *jq) {
+jv jq_next(jq_state *jq, unsigned int timeout_sec) {
   jv cfunc_input[MAX_CFUNCTION_ARGS];
 
   jv_nomem_handler(jq->nomem_handler, jq->nomem_handler_data);
@@ -349,6 +352,9 @@ jv jq_next(jq_state *jq) {
   int raising;
   int backtracking = !jq->initial_execution;
 
+  char check_timeout_freq = CHECK_TIMEOUT_FREQ;
+  clock_t deadline = clock() + timeout_sec * CLOCKS_PER_SEC;
+
   jq->initial_execution = 0;
   assert(jv_get_kind(jq->error) == JV_KIND_NULL);
   while (1) {
@@ -357,6 +363,15 @@ jv jq_next(jq_state *jq) {
         printf("\t<halted>\n");
       return jv_invalid();
     }
+
+    if(check_timeout_freq != 0) {
+      check_timeout_freq--;
+    } else if (clock() > deadline) {
+      return jv_invalid_with_msg(jv_string("timeout"));
+    } else {
+      check_timeout_freq = CHECK_TIMEOUT_FREQ;
+    }
+
     uint16_t opcode = *pc;
     raising = 0;
 
@@ -521,7 +536,7 @@ jv jq_next(jq_state *jq) {
       if (raising) {
         jv_free(max);
         goto do_backtrack;
-      } 
+      }
       if (jv_get_kind(*var) != JV_KIND_NUMBER ||
           jv_get_kind(max) != JV_KIND_NUMBER) {
         set_error(jq, jv_invalid_with_msg(jv_string_fmt("Range bounds must be numeric")));
